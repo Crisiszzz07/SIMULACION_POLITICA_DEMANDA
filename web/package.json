@@ -1,0 +1,17 @@
+{
+  "name": "simulador-inventario",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && vite build --config vite.standalone.config.ts"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.2.5"
+  }
+}

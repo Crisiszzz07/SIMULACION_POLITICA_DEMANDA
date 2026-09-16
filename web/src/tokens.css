@@ -1,0 +1,64 @@
+:root {
+  /* Hallmark Design Tokens · Pale Purple / Lavender Anchor (Hue 305) */
+
+  /* Palette · OKLCH */
+  --color-paper: oklch(97.8% 0.010 305);
+  --color-paper-2: oklch(95.2% 0.018 305);
+  --color-paper-3: oklch(92.0% 0.026 305);
+  --color-rule: oklch(87.0% 0.022 305);
+  --color-rule-subtle: oklch(91.5% 0.015 305);
+  --color-ink: oklch(22.0% 0.035 305);
+  --color-muted: oklch(46.0% 0.028 305);
+  --color-accent: oklch(56.0% 0.170 305);
+  --color-accent-hover: oklch(50.0% 0.180 305);
+  --color-accent-ink: oklch(98.0% 0.008 305);
+  --color-focus: oklch(58.0% 0.190 305);
+
+  /* Policy accents within the pale purple spectrum */
+  --color-p1-surface: oklch(95.5% 0.030 295);
+  --color-p1-ink: oklch(36.0% 0.120 295);
+  --color-p1-border: oklch(86.0% 0.050 295);
+
+  --color-p2-surface: oklch(95.5% 0.030 330);
+  --color-p2-ink: oklch(36.0% 0.120 330);
+  --color-p2-border: oklch(86.0% 0.050 330);
+
+  /* Neutral and success states */
+  --color-verdict-surface: oklch(94.5% 0.035 155);
+  --color-verdict-ink: oklch(30.0% 0.090 155);
+  --color-verdict-border: oklch(84.0% 0.040 155);
+
+  --color-code-bg: oklch(20.0% 0.030 305);
+  --color-code-ink: oklch(90.0% 0.015 305);
+
+  /* Typography Pairing (Display Grotesk + Engineering Body + Mono) */
+  --font-display: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Line Heights */
+  --lh-tight: 1.1;
+  --lh-snug: 1.35;
+  --lh-comfortable: 1.55;
+
+  /* 4pt Spacing Scale */
+  --space-3xs: 4px;
+  --space-2xs: 8px;
+  --space-xs: 12px;
+  --space-sm: 16px;
+  --space-md: 24px;
+  --space-lg: 32px;
+  --space-xl: 48px;
+  --space-2xl: 64px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 9999px;
+
+  /* Motion & Transitions */
+  --dur-short: 150ms;
+  --dur-med: 250ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}

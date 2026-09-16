@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Comparación Monte Carlo de dos políticas de inventario en una plataforma interactiva." />
+    <title>Simulador de inventario</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div class="ambient-canvas" aria-hidden="true">
+      <div class="ambient-grid"></div>
+      <div class="ambient-orb ambient-orb--1"></div>
+      <div class="ambient-orb ambient-orb--2"></div>
+      <div class="ambient-orb ambient-orb--3"></div>
+    </div>
+    <main class="shell">
+      <header class="workbench-header">
+        <div class="meta-tag">Simulación de Inventarios · Problema 5.5</div>
+        <h1>¿Qué política cuesta menos?</h1>
+        <p class="intro">Demanda diaria Binomial(6, 0.5), tiempo de entrega Poisson(λ = 3) y dos formas de reabastecer.</p>
+      </header>
+
+      <section class="controls" aria-labelledby="config-title">
+        <div class="controls-title-block">
+          <h2 id="config-title">Configuración del experimento</h2>
+        </div>
+        <div class="control-group">
+          <label for="days">Días de la corrida</label>
+          <input id="days" type="number" min="1" max="100000" value="365" />
+        </div>
+        <div class="action-group">
+          <button id="run" type="button" disabled>Ejecutar simulación</button>
+        </div>
+        <div class="file-input">
+          <label for="excel">Uniformes desde Excel
+            <input id="excel" type="file" accept=".xlsx,.xls" />
+          </label>
+          <p id="excel-status">Carga un Excel con R_i para habilitar la simulación.</p>
+        </div>
+      </section>
+
+      <section class="policies" aria-label="Políticas comparadas">
+        <article class="policy policy-1">
+          <div class="policy-badge">Política 1</div>
+          <h2>Revisión diaria</h2>
+          <p>Al final de cada día, ordenar lo necesario para llevar el inventario neto a <strong>8 unidades</strong>.</p>
+        </article>
+        <article class="policy policy-2">
+          <div class="policy-badge">Política 2</div>
+          <h2>Punto de pedido</h2>
+          <p>Cuando el inventario neto es ≤ <strong>10</strong>, ordenar hasta llegar a <strong>30 unidades</strong>.</p>
+        </article>
+      </section>
+
+      <section class="results" aria-live="polite" aria-labelledby="results-title">
+        <div class="result-heading">
+          <h2 id="results-title">Resultados de la corrida</h2>
+          <p id="verdict" class="verdict neutral">Carga el archivo de números pseudoaleatorios y después pulsa “Ejecutar simulación”.</p>
+        </div>
+        <div class="comparison">
+          <article class="cost-card policy-1">
+            <h3>Política 1</h3>
+            <output id="p1-total">—</output>
+            <p id="p1-daily">—</p>
+            <dl>
+              <div><dt>Mantenimiento</dt><dd id="p1-holding">—</dd></div>
+              <div><dt>Faltantes</dt><dd id="p1-shortage">—</dd></div>
+              <div><dt>Órdenes</dt><dd id="p1-ordering">—</dd></div>
+            </dl>
+          </article>
+          <article class="cost-card policy-2">
+            <h3>Política 2</h3>
+            <output id="p2-total">—</output>
+            <p id="p2-daily">—</p>
+            <dl>
+              <div><dt>Mantenimiento</dt><dd id="p2-holding">—</dd></div>
+              <div><dt>Faltantes</dt><dd id="p2-shortage">—</dd></div>
+              <div><dt>Órdenes</dt><dd id="p2-ordering">—</dd></div>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section class="method" aria-labelledby="method-title">
+        <h2 id="method-title">Modelo y dinámica de inventario</h2>
+        <div class="method-body">
+          <p>El día sigue esta secuencia: llegan pedidos programados → ocurre la demanda → se cobran costos sobre el inventario neto final → se revisa y, si corresponde, se emite un pedido. El inventario negativo representa demanda pendiente; el faltante cuesta $10 por unidad y por día. Cada pedido cuesta $50, sin importar su tamaño. Un plazo Poisson igual a 0 se recibe al día siguiente porque el pedido se emite al cierre.</p>
+          <p>La simulación no crea números aleatorios: toma exclusivamente los <code>R_i</code> del archivo subido. Cada política empieza desde el primer <code>R_i</code> del mismo archivo y lo consume en orden. Se necesita un máximo de siete valores por día: seis para la demanda y uno para un posible plazo de entrega.</p>
+        </div>
+      </section>
+
+      <section class="demonstration" aria-labelledby="demo-title">
+        <div class="demo-heading">
+          <h2 id="demo-title">Secuencia de cálculo por jornada</h2>
+        </div>
+        <div class="process-flow" aria-label="Secuencia de eventos de un día">
+          <div class="flow-step"><b>1</b><strong>Recibir</strong><span>Se suman los pedidos cuyo plazo terminó.</span></div>
+          <i class="flow-arrow" aria-hidden="true">→</i>
+          <div class="flow-step"><b>2</b><strong>Demandar</strong><span>Se descuenta la demanda Binomial(6, 0,5).</span></div>
+          <i class="flow-arrow" aria-hidden="true">→</i>
+          <div class="flow-step"><b>3</b><strong>Costear</strong><span>Stock positivo × $1; pendiente × $10.</span></div>
+          <i class="flow-arrow" aria-hidden="true">→</i>
+          <div class="flow-step"><b>4</b><strong>Ordenar</strong><span>Se aplica la política elegida y se cobra $50.</span></div>
+        </div>
+
+        <div class="calculation-examples">
+          <article class="calc-card">
+            <h3>Demanda: 6 ensayos Binomial</h3>
+            <div class="uniforms" aria-label="Ejemplo de seis números uniformes">
+              <span class="hit">0,12</span><span>0,88</span><span class="hit">0,46</span><span>0,67</span><span class="hit">0,31</span><span>0,75</span>
+            </div>
+            <p>Estos seis <code>R_i</code> vienen del archivo. Un valor menor que 0,5 cuenta como una unidad demandada. Hay 3 valores menores a 0,5, por lo tanto <strong>demanda = 3</strong>.</p>
+          </article>
+          <article class="calc-card">
+            <h3>Plazo: Poisson con λ = 3</h3>
+            <div class="poisson-scale" aria-label="Ejemplo de asignación de tiempo de entrega">
+              <span>0 días<br><small>0–0,050</small></span>
+              <span>1 día<br><small>0,050–0,199</small></span>
+              <span>2 días<br><small>0,199–0,423</small></span>
+              <span class="selected">3 días<br><small>0,423–0,647</small></span>
+              <span>4+ días<br><small>&gt; 0,647</small></span>
+            </div>
+            <p>Por ejemplo, <strong>R = 0,58</strong> cae en el intervalo de 3 días. Se usa el siguiente <code>R_i</code> del archivo para asignar cada plazo de entrega.</p>
+          </article>
+        </div>
+
+        <section class="guided-example" aria-labelledby="guided-title">
+          <div class="guided-heading">
+            <h3 id="guided-title">Recorrido paso a paso (Día 1)</h3>
+            <div class="step-controls">
+              <button id="walk-back" type="button" aria-label="Paso anterior">←</button>
+              <span id="walk-count">Paso 1 de 5</span>
+              <button id="walk-next" type="button" aria-label="Paso siguiente">→</button>
+            </div>
+          </div>
+          <p id="guided-note" class="guided-note">Este recorrido ilustra el código con siete <code>R_i</code> de ejemplo; no utiliza ni modifica el archivo cargado.</p>
+          <div class="guided-grid">
+            <article class="guided-card">
+              <h4>Secuencia de entrada</h4>
+              <p>La simulación lee los valores del archivo, uno tras otro.</p>
+              <div id="walk-uniforms" class="walk-uniforms"></div>
+            </article>
+            <article class="guided-card inventory-board">
+              <span class="step-label" id="walk-label">Inicio</span>
+              <h4 id="walk-title">Inventario inicial</h4>
+              <div class="inventory-equation">
+                <span id="walk-before">8</span>
+                <b id="walk-operator">unidades disponibles</b>
+                <span id="walk-after">8</span>
+              </div>
+              <p id="walk-explanation">Se inicia con 8 unidades. No hay pedidos que recibir todavía.</p>
+              <div id="walk-summary" class="walk-summary">Inventario neto: 8</div>
+            </article>
+            <article class="guided-card code-map">
+              <h4>Qué hace el algoritmo</h4>
+              <ol id="walk-code">
+                <li>recibir pedidos programados</li>
+                <li>calcular demanda con 6 R_i</li>
+                <li>cobrar inventario o faltante</li>
+                <li>evaluar la política y ordenar</li>
+              </ol>
+            </article>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      // Al abrir este archivo con doble clic, TypeScript no se ejecuta. Se carga
+      // el paquete JavaScript que pnpm build deja junto a este HTML.
+      if (location.protocol === "file:" && /\/web\/index\.html$/.test(location.pathname)) {
+        document.write('<script src="./standalone/simulador.js"><\/script>');
+      }
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
