@@ -14,8 +14,10 @@ Se estudia la gestión de inventario de un artículo con las siguientes condicio
 
 El objetivo es comparar cuál de estas políticas resulta más económica:
 
-1. Revisión diaria: ordenar para llevar el inventario neto a 8 unidades.
+1. Revisión periódica: ordenar cada 8 días hasta tener 30 unidades en inventario.
 2. Punto de pedido: si el inventario neto es menor o igual a 10, ordenar hasta 30.
+
+Se asume que las unidades faltantes en un ciclo son surtidas por la orden que llega en el ciclo siguiente. La corrida comienza con un inventario neto de 30 unidades para ambas políticas.
 
 En la simulación, el inventario negativo representa unidades pendientes de surtir. Cada jornada recibe pedidos programados, atiende la demanda, calcula costos y después emite las nuevas órdenes.
 

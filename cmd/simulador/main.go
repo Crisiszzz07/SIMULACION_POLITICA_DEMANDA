@@ -24,7 +24,7 @@ type Params struct {
 type Policy struct {
 	Name                    string
 	OrderUpTo, ReorderPoint int
-	ReviewDaily             bool
+	ReviewPeriod            int // revisión cada N días; 0 = revisión continua por punto de pedido
 }
 type Result struct {
 	Total, Holding, Shortage, Ordering float64
@@ -92,7 +92,11 @@ func simulate(p Params, policy Policy, uniforms []float64) (Result, error) {
 			result.Shortage += float64(-inventory) * p.ShortageCost
 			result.ShortageUnits += -inventory
 		}
-		if (policy.ReviewDaily || inventory <= policy.ReorderPoint) && inventory < policy.OrderUpTo {
+		tocaRevisar := inventory <= policy.ReorderPoint
+		if policy.ReviewPeriod > 0 {
+			tocaRevisar = day%policy.ReviewPeriod == 0
+		}
+		if tocaRevisar && inventory < policy.OrderUpTo {
 			leadTime, err := samplePoisson(&cursor, p.LeadLambda)
 			if err != nil {
 				return Result{}, fmt.Errorf("día %d, plazo de entrega: %w", day, err)
@@ -142,7 +146,7 @@ func main() {
 	var uniformFile string
 	flag.IntVar(&p.Days, "dias", 0, "días de la corrida")
 	flag.StringVar(&uniformFile, "uniformes", "", "archivo CSV/TXT con R_i externos")
-	flag.IntVar(&p.InitialStock, "inventario-inicial", 8, "inventario neto inicial")
+	flag.IntVar(&p.InitialStock, "inventario-inicial", 30, "inventario neto inicial")
 	flag.Parse()
 	if p.Days <= 0 || uniformFile == "" {
 		fmt.Println("Uso: simulador -dias 285 -uniformes ruta/a/ri.csv")
@@ -159,8 +163,8 @@ func main() {
 	}
 	p.DemandN, p.DemandP, p.LeadLambda = 6, 0.5, 3
 	p.HoldingCost, p.ShortageCost, p.OrderCost = 1, 10, 50
-	daily := Policy{"Política 1: revisar cada día, subir a 8", 8, 0, true}
-	reorder := Policy{"Política 2: cuando inventario <= 10, subir a 30", 30, 10, false}
+	daily := Policy{"Política 1: revisar cada 8 días, subir a 30", 30, 0, 8}
+	reorder := Policy{"Política 2: cuando inventario <= 10, subir a 30", 30, 10, 0}
 	r1, err := simulate(p, daily, uniforms)
 	if err != nil {
 		fmt.Printf("Error en política 1: %v\n", err)

@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 
-type Policy = { upTo: number; reorderPoint: number; reviewDaily: boolean };
+type Policy = { upTo: number; reorderPoint: number; reviewPeriod: number };
 type Result = { total: number; holding: number; shortage: number; ordering: number };
 type Params = { days: number };
 type UniformCursor = () => number;
@@ -41,7 +41,7 @@ function poisson(nextUniform: UniformCursor): number {
 }
 
 function simulate(params: Params, policy: Policy, nextUniform: UniformCursor): Result {
-  let inventory = 8;
+  let inventory = 30;
   const arrivals = new Map<number, number>();
   const result: Result = { total: 0, holding: 0, shortage: 0, ordering: 0 };
 
@@ -52,7 +52,8 @@ function simulate(params: Params, policy: Policy, nextUniform: UniformCursor): R
     if (inventory >= 0) result.holding += inventory;
     else result.shortage += -inventory * 10;
 
-    if ((policy.reviewDaily || inventory <= policy.reorderPoint) && inventory < policy.upTo) {
+    const tocaRevisar = policy.reviewPeriod > 0 ? day % policy.reviewPeriod === 0 : inventory <= policy.reorderPoint;
+    if (tocaRevisar && inventory < policy.upTo) {
       const quantity = policy.upTo - inventory;
       const arrivalDay = day + Math.max(1, poisson(nextUniform));
       arrivals.set(arrivalDay, (arrivals.get(arrivalDay) ?? 0) + quantity);
@@ -84,8 +85,8 @@ function run(): void {
   if (!excelUniforms) { resetResults("Carga un archivo Excel válido antes de ejecutar."); return; }
   if (params.days * 7 > excelUniforms.length) { resetResults(`El archivo aporta ${excelUniforms.length.toLocaleString("es-CO")} R_i. Para ${params.days} días se requieren hasta ${(params.days * 7).toLocaleString("es-CO")}.`); return; }
   try {
-    const first = simulate(params, { upTo: 8, reorderPoint: 0, reviewDaily: true }, excelCursor(excelUniforms));
-    const second = simulate(params, { upTo: 30, reorderPoint: 10, reviewDaily: false }, excelCursor(excelUniforms));
+    const first = simulate(params, { upTo: 30, reorderPoint: 0, reviewPeriod: 8 }, excelCursor(excelUniforms));
+    const second = simulate(params, { upTo: 30, reorderPoint: 10, reviewPeriod: 0 }, excelCursor(excelUniforms));
     showResult("p1", first, params.days); showResult("p2", second, params.days);
     const [winner, loser, saving] = first.total <= second.total
       ? ["Política 1", "Política 2", second.total - first.total]
@@ -168,20 +169,19 @@ async function importExcel(event: Event): Promise<void> {
 
 type WalkStep = { label: string; title: string; before: string; operator: string; after: string; explanation: string; summary: string; used: number; code: number };
 const sampleWalkthrough: WalkStep[] = [
-  { label: "Inicio", title: "Inventario inicial", before: "8", operator: "unidades disponibles", after: "8", explanation: "Se inicia con 8 unidades. No hay pedidos que recibir todavía.", summary: "Inventario neto: 8", used: 0, code: 0 },
-  { label: "Paso 1 · recibir", title: "Llegada de pedidos", before: "8 + 0", operator: "pedido recibido", after: "8", explanation: "Se suman primero las entregas programadas para este día. En el día 1 no llega ninguna.", summary: "Inventario neto: 8", used: 0, code: 1 },
-  { label: "Paso 2 · demandar", title: "Demanda Binomial(6, 0,5)", before: "8 − 3", operator: "tres R_i < 0,5", after: "5", explanation: "Se leen R₁ a R₆. Los valores 0,12, 0,46 y 0,31 son menores que 0,5, así que la demanda es 3.", summary: "Inventario neto: 5", used: 6, code: 2 },
-  { label: "Paso 3 · costear", title: "Costo de mantenimiento", before: "5 × $1", operator: "inventario final", after: "$5", explanation: "Como el inventario final es positivo, se cobra $1 por unidad. No hay costo de faltante este día.", summary: "Costo acumulado del día: $5", used: 6, code: 3 },
-  { label: "Paso 4 · ordenar", title: "Política 1: subir a 8", before: "8 − 5 = 3", operator: "pedir 3 unidades", after: "día 4", explanation: "La política diaria ordena 3 unidades. El siguiente valor, R₇ = 0,58, se transforma con Poisson(λ=3) en un plazo de 3 días; el pedido llegará el día 4.", summary: "Costo del día: $5 + $50 = $55", used: 7, code: 4 },
+  { label: "Inicio", title: "Inventario inicial", before: "30", operator: "unidades disponibles", after: "30", explanation: "Se inicia con 30 unidades. No hay pedidos que recibir todavía.", summary: "Inventario neto: 30", used: 0, code: 0 },
+  { label: "Paso 1 · recibir", title: "Llegada de pedidos", before: "30 + 0", operator: "pedido recibido", after: "30", explanation: "Se suman primero las entregas programadas para este día. En el día 1 no llega ninguna.", summary: "Inventario neto: 30", used: 0, code: 1 },
+  { label: "Paso 2 · demandar", title: "Demanda Binomial(6, 0,5)", before: "30 − 3", operator: "tres R_i < 0,5", after: "27", explanation: "Se leen R₁ a R₆. Los valores 0,12, 0,46 y 0,31 son menores que 0,5, así que la demanda es 3.", summary: "Inventario neto: 27", used: 6, code: 2 },
+  { label: "Paso 3 · costear", title: "Costo de mantenimiento", before: "27 × $1", operator: "inventario final", after: "$27", explanation: "Como el inventario final es positivo, se cobra $1 por unidad. No hay costo de faltante este día.", summary: "Costo acumulado del día: $27", used: 6, code: 3 },
+  { label: "Paso 4 · ordenar", title: "Política 1: revisar cada 8 días", before: "día 1", operator: "1 % 8 ≠ 0", after: "no se revisa", explanation: "La política 1 solo revisa el inventario cada 8 días. Como el día 1 no es múltiplo de 8, no se evalúa si hay que ordenar, sin importar el nivel de inventario.", summary: "Costo del día: $27 (sin orden)", used: 6, code: 4 },
 ];
 
 let walkthrough = sampleWalkthrough;
-let walkValues = ["R₁ 0,12", "R₂ 0,88", "R₃ 0,46", "R₄ 0,67", "R₅ 0,31", "R₆ 0,75", "R₇ 0,58"];
+let walkValues = ["R₁ 0,12", "R₂ 0,88", "R₃ 0,46", "R₄ 0,67", "R₅ 0,31", "R₆ 0,75"];
 let walkCurrent = 0;
 let walkUniforms: HTMLElement | null = null;
 
 function formatUniform(value: number): string { return value.toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 3 }); }
-function poissonFromUniform(value: number): number { return poisson(() => value); }
 
 function renderWalkthrough(): void {
   if (!walkUniforms) return;
@@ -197,23 +197,16 @@ function renderWalkthrough(): void {
 function setWalkthroughFromUniforms(values: number[]): void {
   const demandUniforms = values.slice(0, 6);
   const demand = demandUniforms.filter((value) => value < 0.5).length;
-  const inventory = 8 - demand;
+  const inventory = 30 - demand;
   const labels = demandUniforms.map((value, index) => `R${index + 1} ${formatUniform(value)}`);
   const marked = demandUniforms.filter((value) => value < 0.5).map(formatUniform).join(", ") || "ninguno";
   const steps: WalkStep[] = [
-    { label: "Día 1 · inicio", title: "Inventario inicial", before: "8", operator: "unidades disponibles", after: "8", explanation: "La corrida comienza con 8 unidades, como está definido en el modelo.", summary: "Inventario neto: 8", used: 0, code: 0 },
-    { label: "Paso 1 · recibir", title: "Llegada de pedidos", before: "8 + 0", operator: "pedido recibido", after: "8", explanation: "En el primer día no existe una orden anterior que pueda llegar.", summary: "Inventario neto: 8", used: 0, code: 1 },
-    { label: "Paso 2 · demandar", title: "Demanda del archivo", before: `8 − ${demand}`, operator: `${demand} R_i < 0,5`, after: String(inventory), explanation: `Se consumen R₁–R₆ del Excel. Los menores que 0,5 son: ${marked}; por eso la demanda es ${demand}.`, summary: `Inventario neto: ${inventory}`, used: 6, code: 2 },
+    { label: "Día 1 · inicio", title: "Inventario inicial", before: "30", operator: "unidades disponibles", after: "30", explanation: "La corrida comienza con 30 unidades, como está definido en el modelo.", summary: "Inventario neto: 30", used: 0, code: 0 },
+    { label: "Paso 1 · recibir", title: "Llegada de pedidos", before: "30 + 0", operator: "pedido recibido", after: "30", explanation: "En el primer día no existe una orden anterior que pueda llegar.", summary: "Inventario neto: 30", used: 0, code: 1 },
+    { label: "Paso 2 · demandar", title: "Demanda del archivo", before: `30 − ${demand}`, operator: `${demand} R_i < 0,5`, after: String(inventory), explanation: `Se consumen R₁–R₆ del Excel. Los menores que 0,5 son: ${marked}; por eso la demanda es ${demand}.`, summary: `Inventario neto: ${inventory}`, used: 6, code: 2 },
     { label: "Paso 3 · costear", title: "Costo de mantenimiento", before: `${inventory} × $1`, operator: "inventario final", after: `$${inventory}`, explanation: `El inventario es positivo, por lo que se cobra $1 por cada una de las ${inventory} unidades.`, summary: `Costo acumulado del día: $${inventory}`, used: 6, code: 3 },
+    { label: "Paso 4 · ordenar", title: "Política 1: revisar cada 8 días", before: "día 1", operator: "1 % 8 ≠ 0", after: "no se revisa", explanation: "La política 1 solo evalúa si debe ordenar cada 8 días. Como el día 1 no es múltiplo de 8, no se revisa el inventario, sin importar cuánto quedó tras la demanda.", summary: `Costo del día: $${inventory} (sin orden)`, used: 6, code: 4 },
   ];
-  if (demand > 0 && values.length >= 7) {
-    const lead = poissonFromUniform(values[6]);
-    const arrival = 1 + Math.max(1, lead);
-    labels.push(`R7 ${formatUniform(values[6])}`);
-    steps.push({ label: "Paso 4 · ordenar", title: "Política 1: subir a 8", before: `8 − ${inventory} = ${demand}`, operator: `R₇ → ${lead} días`, after: `día ${arrival}`, explanation: `Se ordenan ${demand} unidades. R₇ = ${formatUniform(values[6])} asigna un plazo Poisson de ${lead} días; el pedido llegará el día ${arrival}.`, summary: `Costo del día: $${inventory} + $50 = $${inventory + 50}`, used: 7, code: 4 });
-  } else {
-    steps.push({ label: "Paso 4 · ordenar", title: "Política 1: no se ordena", before: "8 − 8 = 0", operator: "meta ya cubierta", after: "sin pedido", explanation: "La demanda fue 0, por lo que el inventario sigue en 8. No se consume un R_i para plazo porque no se emite orden.", summary: `Costo del día: $${inventory}`, used: 6, code: 4 });
-  }
   walkthrough = steps; walkValues = labels; walkCurrent = 0;
   setText("guided-note", "Este recorrido usa los primeros R_i del archivo cargado y representa la política 1 durante el día 1.");
   renderWalkthrough();
