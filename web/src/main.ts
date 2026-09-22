@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 
-type Policy = { upTo: number; reorderPoint: number; reviewDaily: boolean };
+type Policy = { upTo: number; reorderPoint: number; reviewPeriod: number };
 type Result = { total: number; holding: number; shortage: number; ordering: number };
 type Params = { days: number };
 type UniformCursor = () => number;
@@ -10,7 +10,7 @@ let loadedFileName = "";
 let excelSource = "";
 
 const money = new Intl.NumberFormat("es-CO", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
-
+//entrega los numeros pseudoaleatorios del excel
 function excelCursor(values: number[]): UniformCursor {
   let index = 0;
   return () => {
@@ -20,13 +20,15 @@ function excelCursor(values: number[]): UniformCursor {
     return value;
   };
 }
-
+//Generacion de la demanda, Aqui es donde se calcula cuantos articulos compran los clientes en un dia usando la distribucion Binomial
+// Se repite 6 veces porque n = 6, en cada repeticion pide un numero aleatorio
+// P = 0.5, si el numero es menor a 0.5 se suma 1 a la demanda del dia
 function binomial(nextUniform: UniformCursor): number {
   let value = 0;
   for (let i = 0; i < 6; i += 1) if (nextUniform() < 0.5) value += 1;
   return value;
 }
-
+// Cuantos dias va a tardar un pedido de unidades? aca se saca, convierte el decimal pseudoaleatorio en un numero entero de dias
 function poisson(nextUniform: UniformCursor): number {
   const uniform = nextUniform();
   let probability = Math.exp(-3);
@@ -40,8 +42,9 @@ function poisson(nextUniform: UniformCursor): number {
   return value;
 }
 
+// aca empieza la simulacion, el codigo asume que se empieza con 30 unidades 
 function simulate(params: Params, policy: Policy, nextUniform: UniformCursor): Result {
-  let inventory = 8;
+  let inventory = 30; // Iniciamos con 30 unidades según la lógica del problema
   const arrivals = new Map<number, number>();
   const result: Result = { total: 0, holding: 0, shortage: 0, ordering: 0 };
 
@@ -49,11 +52,24 @@ function simulate(params: Params, policy: Policy, nextUniform: UniformCursor): R
     inventory += arrivals.get(day) ?? 0;
     arrivals.delete(day);
     inventory -= binomial(nextUniform);
+    
     if (inventory >= 0) result.holding += inventory;
     else result.shortage += -inventory * 10;
 
-    if ((policy.reviewDaily || inventory <= policy.reorderPoint) && inventory < policy.upTo) {
-      const quantity = policy.upTo - inventory;
+    //  Nueva lógica del gerente para decidir si toca revisar el inventario
+    let tocaRevisar = false;
+    
+    if (policy.reviewPeriod > 0) {
+      //  Revisar cada X días (ej. cada 8 días usando el residuo de la división)
+      if (day % policy.reviewPeriod === 0) tocaRevisar = true;
+    } else {
+      // Se revisa solo si cae al punto crítico (<= 10)
+      if (inventory <= policy.reorderPoint) tocaRevisar = true;
+    }
+
+    // Si tocó revisar Y ADEMÁS no tenemos el almacén lleno, pedimos.
+    if (tocaRevisar && inventory < policy.upTo) {
+      const quantity = policy.upTo - inventory; // Pedimos hasta completar el nivel máximo
       const arrivalDay = day + Math.max(1, poisson(nextUniform));
       arrivals.set(arrivalDay, (arrivals.get(arrivalDay) ?? 0) + quantity);
       result.ordering += 50;
@@ -84,8 +100,10 @@ function run(): void {
   if (!excelUniforms) { resetResults("Carga un archivo Excel válido antes de ejecutar."); return; }
   if (params.days * 7 > excelUniforms.length) { resetResults(`El archivo aporta ${excelUniforms.length.toLocaleString("es-CO")} R_i. Para ${params.days} días se requieren hasta ${(params.days * 7).toLocaleString("es-CO")}.`); return; }
   try {
-    const first = simulate(params, { upTo: 8, reorderPoint: 0, reviewDaily: true }, excelCursor(excelUniforms));
-    const second = simulate(params, { upTo: 30, reorderPoint: 10, reviewDaily: false }, excelCursor(excelUniforms));
+    // Política 1: Ordenar cada 8 días hasta tener 30 artículos.
+    const first = simulate(params, { upTo: 30, reorderPoint: 0, reviewPeriod: 8 }, excelCursor(excelUniforms));
+    // Política 2: Ordenar hasta 30 artículos cuando el nivel sea menor o igual a 10 (Periodo 0 = revisión continua).
+    const second = simulate(params, { upTo: 30, reorderPoint: 10, reviewPeriod: 0 }, excelCursor(excelUniforms));
     showResult("p1", first, params.days); showResult("p2", second, params.days);
     const [winner, loser, saving] = first.total <= second.total
       ? ["Política 1", "Política 2", second.total - first.total]
